@@ -1,0 +1,14 @@
+{
+   "embed_dim": 512,
+   "vision_cfg": {},
+   "text_cfg": {
+        "hf_model_name": "lmsys/vicuna-13b-v1.5",
+        "hf_tokenizer_name": "lmsys/vicuna-13b-v1.5",
+        "proj": "linear",
+        "pooler_type": "eos_attention_pooler",
+        "load_pretrained": true,
+        "prompt_tuning": true,
+        "lora": true,
+        "num_prompt_tokens": 24
+    }
+}
