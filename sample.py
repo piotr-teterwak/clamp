@@ -15,7 +15,7 @@ device="cpu"
 
 texts= "USER: A photo of a {}.Being brief, an image of {} has the following visual attributes:\n ASSISTANT:1. ".format(classname,classname)
 texts = tokenizer(texts).to(device)  # tokenize
-text_features = model.encode_text(text_inputs)
+text_features = model.encode_text(texts)
 
 
 images = torch.zeros(1,3,224,224)
