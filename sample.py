@@ -19,7 +19,7 @@ text_features = model.encode_text(texts)
 
 
 images = torch.zeros(1,3,224,224)
-image_features = model.encode_image(image_input)
+image_features = model.encode_image(images)
 
 image_features /= image_features.norm(dim=-1, keepdim=True)
 text_features /= text_features.norm(dim=-1, keepdim=True)
