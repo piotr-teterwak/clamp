@@ -15,6 +15,13 @@ device="cpu"
 
 texts= "USER: A photo of a {}.Being brief, an image of {} has the following visual attributes:\n ASSISTANT:1. ".format(classname,classname)
 texts = tokenizer(texts).to(device)  # tokenize
-class_embeddings = model.encode_text(texts)
-class_embedding = F.normalize(class_embeddings, dim=-1).mean(dim=0)
-class_embedding /= class_embedding.norm()
+text_features = model.encode_text(text_inputs)
+
+
+images = torch.zeros(1,3,224,224)
+image_features = model.encode_image(image_input)
+
+image_features /= image_features.norm(dim=-1, keepdim=True)
+text_features /= text_features.norm(dim=-1, keepdim=True)
+
+similarity = (image_features @ text_features.T)
