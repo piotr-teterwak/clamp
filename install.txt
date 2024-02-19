@@ -1,0 +1,10 @@
+$conda install python = 3.9
+
+$make install
+
+$conda install python
+
+$conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
+
+$export HF_HOME=/projectnb/ivc-ml/piotrt/hf_cache
+
