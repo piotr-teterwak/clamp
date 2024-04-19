@@ -5,13 +5,13 @@
 #SBATCH --ntasks-per-node=8
 #SBATCH --cpus-per-task=12
 #SBATCH --wait-all-nodes=1
-#SBATCH --job-name=vicuna_ablate_rpo
+#SBATCH --job-name=llava_clamp
 #SBATCH --partition midas
 #SBATCH -o /fsx/youngkyun/clamp/logs/slurm/%x_%A.o
 #SBATCH -e /fsx/youngkyun/clamp/logs/slurm/%x_%A.e
 
 eval "$(/data/home/youngkyun/miniconda3/bin/conda shell.bash hook)"
-conda activate VLM
+conda activate piotr
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 export MASTER_PORT=57129
 
