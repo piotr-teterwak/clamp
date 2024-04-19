@@ -66,5 +66,19 @@ arch_dict = {
         },
         "pooler": "mean_pooler",
     },
+   "llava": {
+        "config_names": {
+            "context_length": "max_position_embeddings",
+            "vocab_size": "vocab_size",
+            "width": "hidden_size",
+            "heads": "num_attention_heads",
+            "layers": "num_hidden_layers",
+            "layer_attr": "layers",
+            "token_embeddings_attr": "embed_tokens"
+
+        },
+        "pooler": "mean_pooler",
+    },
+
 
 }

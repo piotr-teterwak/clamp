@@ -18,6 +18,8 @@ try:
     from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig, PretrainedConfig, LlamaConfig,GenerationConfig
     from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPooling, \
         BaseModelOutputWithPoolingAndCrossAttentions
+    from llava_builder import load_pretrained_model
+    from llava.mm_utils import get_model_name_from_path
 except ImportError as e:
     transformers = None
 
@@ -503,6 +505,8 @@ class HFTextEncoder(nn.Module):
                 self.transformer = self.transformer.encoder
             elif isinstance(self.config, LlamaConfig):
                 self.transformer = create_func(model_args, output_hidden_states=True)
+            elif isinstance(self.config, transformers.models.llava.configuration_llava.LlavaConfig):
+                self.tokenizer, self.transformer, _, _ = load_pretrained_model(model_path=model_name_or_path,model_base=None, model_name=get_model_name_from_path(model_name_or_path))	
             else:
                 self.transformer = create_func(model_args, add_pooling_layer=uses_transformer_pooler,output_hidden_states=True)
         else:
