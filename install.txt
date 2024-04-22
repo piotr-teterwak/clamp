@@ -1,4 +1,4 @@
-$conda install python = 3.9
+$conda install python=3.9
 
 $make install
 
