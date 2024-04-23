@@ -13,23 +13,23 @@ import types
 import peft
 from peft import LoraConfig, get_peft_model
 
-#try:
-import transformers
-from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig, PretrainedConfig, LlamaConfig,GenerationConfig
-from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPooling, \
-    BaseModelOutputWithPoolingAndCrossAttentions
-from .llava_builder import load_pretrained_model
-from llava.mm_utils import get_model_name_from_path
-#except ImportError as e:
-#    transformers = None
+try:
+    import transformers
+    from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig, PretrainedConfig, LlamaConfig,GenerationConfig
+    from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPooling, \
+        BaseModelOutputWithPoolingAndCrossAttentions
+    from .llava_builder import load_pretrained_model
+    from llava.mm_utils import get_model_name_from_path
+except ImportError as e:
+    transformers = None
 
 
-   # class BaseModelOutput:
-   #     pass
+    class BaseModelOutput:
+        pass
 
 
-    #class PretrainedConfig:
-    #    pass
+    class PretrainedConfig:
+        pass
 
 from .hf_configs import arch_dict
 
