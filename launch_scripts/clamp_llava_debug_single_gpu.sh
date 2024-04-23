@@ -20,5 +20,5 @@ export NCCL_P2P_DISABLE=1
 
 cd /data/home/youngkyun/piotr2/clamp
 export PYTHONPATH="$PYTHONPATH:$PWD/src"
-srun --cpu_bind=v --accel-bind=gn python -u  src/training/main.py --train-data '/fsx/youngkyun/data/cc3m/cc3m/{00000..00331}.tar'  --train-num-samples 10000000 --dataset-type webdataset_double_tokenizer   --batch-size 64 --zeroshot-frequency 1  --precision amp --workers 5  --dataset-resampled --model clamp_llava  --gather-with-grad --epochs 6 --lr 0.0005 --wd 0.5 --warmup 1220 --eps 1e-08 --local-loss --lock-image   --pretrained openai   --wrap-caption-long-list --logs /fsx/youngkyun/clamp/logs/ --grad-checkpointing --grad-clip-norm 1.0 --distill-model ViT-L-14-336 --distill-pretrained openai
+srun --cpu_bind=v --accel-bind=gn python -u  src/training/main.py --train-data '/fsx/youngkyun/data/cc3m/cc3m/{00000..00331}.tar'  --train-num-samples 10000000 --dataset-type webdataset_double_tokenizer   --batch-size 64 --zeroshot-frequency 1  --precision amp --workers 5  --dataset-resampled --model clamp_llava  --gather-with-grad --epochs 6 --lr 0.0005 --wd 0.5 --warmup 1220 --eps 1e-08 --local-loss --lock-image   --pretrained laion400m_e32   --wrap-caption-long-list --logs /fsx/youngkyun/clamp/logs/ --grad-checkpointing --grad-clip-norm 1.0 --distill-model ViT-L-14 --distill-pretrained  datacomp_xl_s13b_b90k
 
