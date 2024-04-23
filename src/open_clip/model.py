@@ -162,7 +162,6 @@ def _build_text_tower(
     if isinstance(text_cfg, dict):
         text_cfg = CLIPTextCfg(**text_cfg)
 
-
     if text_cfg.hf_model_name:
         text = HFTextEncoder(
             text_cfg.hf_model_name,
