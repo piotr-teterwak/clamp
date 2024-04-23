@@ -2,7 +2,7 @@
 
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
-#SBATCH --ntasks-per-node=8
+#SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=12
 #SBATCH --wait-all-nodes=1
 #SBATCH --job-name=llava_clamp_debug_single_gpu
