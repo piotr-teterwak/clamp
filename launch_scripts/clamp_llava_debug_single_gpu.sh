@@ -10,7 +10,6 @@
 #SBATCH -o /fsx/youngkyun/clamp/logs/slurm/%x_%A.o
 #SBATCH -e /fsx/youngkyun/clamp/logs/slurm/%x_%A.e
 
-export CUDA_VISIBLE_DEVICES=0
 export MASTER_PORT=57129
 
 master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
