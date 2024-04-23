@@ -60,7 +60,7 @@ def backward(total_loss, scaler):
         scaler.scale(total_loss).backward()
     else:
         total_loss.backward()
-    
+
 
 
 def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist_model, args, tb_writer=None):
@@ -93,7 +93,7 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
 
         images, texts = batch
         if args.distill:
-            texts, texts_distill = zip(*texts) 
+            texts, texts_distill = zip(*texts)
             texts = torch.stack(texts)
             texts_distill = torch.stack(texts_distill)
             texts = texts.to(device=device, non_blocking=True)
@@ -124,7 +124,7 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
                 #    if p.grad is None and p.requires_grad is True:
                 #                print('Parameter not used:', n, p.shape)
                 #                #total_loss += 0.0 * p.sum()
-                #1/0 
+                #1/0
                 losses["loss"] = total_loss
 
             backward(total_loss, scaler)
@@ -186,7 +186,7 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
                     if p.grad is None and p.requires_grad is True:
                                 print('Parameter not used:', n, p.shape)
                                 #total_loss += 0.0 * p.sum()
- 
+
 
         if scaler is not None:
             if args.horovod:
@@ -205,6 +205,7 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
         else:
             if args.grad_clip_norm is not None:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip_norm, norm_type=2.0)
+            #1/0
             optimizer.step()
 
         # reset gradient accum, if enabled
@@ -233,7 +234,7 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
             logit_scale_scalar = logit_scale.item()
             loss_log = " ".join(
                 [
-                    f"{loss_name.capitalize()}: {loss_m.val:#.5g} ({loss_m.avg:#.5g})" 
+                    f"{loss_name.capitalize()}: {loss_m.val:#.5g} ({loss_m.avg:#.5g})"
                     for loss_name, loss_m in losses_m.items()
                 ]
             )
@@ -255,7 +256,7 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
                 "samples_per_second_per_gpu": samples_per_second_per_gpu,
                 "scale": logit_scale_scalar,
                 "lr": optimizer.param_groups[0]["lr"]
-            }            
+            }
             log_data.update({name:val.val for name,val in losses_m.items()})
 
             for name, val in log_data.items():
@@ -299,7 +300,7 @@ def evaluate(model, data, epoch, args, tb_writer=None):
             for i, batch in enumerate(dataloader):
                 images, texts = batch
                 if args.distill:
-                    texts, texts_distill = zip(*texts) 
+                    texts, texts_distill = zip(*texts)
                     texts = torch.stack(texts)
                     texts_distill = torch.stack(texts_distill)
                     texts = texts.to(device=device, non_blocking=True)
