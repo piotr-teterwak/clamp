@@ -254,6 +254,7 @@ _PRETRAINED = {
     "vicuna13b-ViT-B-16_eos_24": _VITB16,
     "rebuttal": _VITB16,
     "clamp": _VITB16,
+    #"clamp_llava": _VITB16,
     "clamp_llava": _VITL14_336,
     "vicuna13b-ViT-L-14_eos_24": _VITL14,
     "vicuna13b-ViT-B-16_eos_24_lora": _VITB16,
