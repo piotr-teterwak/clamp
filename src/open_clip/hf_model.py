@@ -475,7 +475,8 @@ class HFTextEncoder(nn.Module):
             prompt_tuning: bool = False,
             num_prompt_tokens: int = 10,
             num_prefix_tokens: int = 0,
-            lora: bool = False
+            lora: bool = False,
+            generative_loss=False
     ):
         super().__init__()
         self.output_tokens = output_tokens
@@ -488,6 +489,7 @@ class HFTextEncoder(nn.Module):
         self.num_prompt_tokens = num_prompt_tokens
         self.num_prefix_tokens = num_prefix_tokens
         self.lora = lora
+        self.generative_loss = generative_loss
 
 
         # TODO: find better way to get this information
@@ -614,7 +616,9 @@ class HFTextEncoder(nn.Module):
             if type(self.pooler) == ClsPooler 
             else out.hidden_states[-1]
         )
-        
+       
+        if self.generative_loss:
+            1/0	 
         if self.output_tokens:
             return projected, tokens
         return projected

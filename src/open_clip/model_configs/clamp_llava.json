@@ -14,6 +14,7 @@
         "load_pretrained": true,
         "prompt_tuning": true,
         "lora": true,
-        "num_prompt_tokens": 24
+        "num_prompt_tokens": 24,
+        "generative_loss": true
     }
 }

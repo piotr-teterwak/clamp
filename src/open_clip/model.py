@@ -71,6 +71,7 @@ class CLIPTextCfg:
     num_prefix_tokens: int = 0
     pad_id: int = 0
     output_tokens: bool = False
+    generative_loss: bool = False
 
 
 def get_cast_dtype(precision: str):
@@ -176,7 +177,8 @@ def _build_text_tower(
             prompt_tuning = text_cfg.prompt_tuning,
             lora = text_cfg.lora,
             num_prompt_tokens = text_cfg.num_prompt_tokens,
-            num_prefix_tokens = text_cfg.num_prefix_tokens
+            num_prefix_tokens = text_cfg.num_prefix_tokens,
+            generative_loss = text_cfg.generative_loss
         )
     else:
         act_layer = QuickGELU if quick_gelu else nn.GELU
