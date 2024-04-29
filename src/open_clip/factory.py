@@ -173,11 +173,13 @@ def create_model(
 
     if pretrained and pretrained.lower() == 'openai':
         logging.info(f'Loading pretrained {model_name} from OpenAI.')
+        model_cfg = model_cfg or get_model_config(model_name)
         model = load_openai_model(
             model_name,
             precision=precision,
             device=device,
             cache_dir=cache_dir,
+            **model_cfg
         )
     else:
         model_cfg = model_cfg or get_model_config(model_name)

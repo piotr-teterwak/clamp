@@ -10,8 +10,10 @@ from typing import List, Optional, Union
 import torch
 
 from .constants import OPENAI_DATASET_MEAN, OPENAI_DATASET_STD
-from .model import build_model_from_openai_state_dict, convert_weights_to_lp, get_cast_dtype
+from .model import build_model_from_openai_state_dict, build_clamp_model_from_openai_state_dict, convert_weights_to_lp, get_cast_dtype
 from .pretrained import get_pretrained_url, list_pretrained_models_by_tag, download_pretrained_from_url
+
+from .model import CLIPTextCfg, CLIPVisionCfg
 
 __all__ = ["list_openai_models", "load_openai_model"]
 
@@ -23,9 +25,13 @@ def list_openai_models() -> List[str]:
 
 def load_openai_model(
         name: str,
+        embed_dim: int,
+        text_cfg: CLIPTextCfg,
+        vision_cfg: CLIPVisionCfg,
         precision: Optional[str] = None,
         device: Optional[Union[str, torch.device]] = None,
         cache_dir: Optional[str] = None,
+        clamp: Optional[bool] = True
 ):
     """Load a CLIP model
 
@@ -69,11 +75,18 @@ def load_openai_model(
 
     # Build a non-jit model from the OpenAI jitted model state dict
     cast_dtype = get_cast_dtype(precision)
-    try:
-        model = build_model_from_openai_state_dict(state_dict or model.state_dict(), cast_dtype=cast_dtype)
-    except KeyError:
-        sd = {k[7:]: v for k, v in state_dict["state_dict"].items()}
-        model = build_model_from_openai_state_dict(sd, cast_dtype=cast_dtype)
+    if clamp:
+        try:
+            model = build_clamp_model_from_openai_state_dict(state_dict or model.state_dict(), cast_dtype=cast_dtype, text_cfg = text_cfg)
+        except KeyError:
+            sd = {k[7:]: v for k, v in state_dict["state_dict"].items()}
+            model = build_clamp_model_from_openai_state_dict(sd, cast_dtype=cast_dtype, text_cfg = text_cfg)
+    else:
+        try:
+            model = build_model_from_openai_state_dict(state_dict or model.state_dict(), cast_dtype=cast_dtype)
+        except KeyError:
+            sd = {k[7:]: v for k, v in state_dict["state_dict"].items()}
+            model = build_model_from_openai_state_dict(sd, cast_dtype=cast_dtype)
 
     # model from OpenAI state dict is in manually cast fp16 mode, must be converted for AMP/fp32/bf16 use
     model = model.to(device)
