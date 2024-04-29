@@ -309,6 +309,8 @@ class CustomTextCLIP(nn.Module):
         self.vocab_size = self.text.vocab_size
         self.logit_scale = nn.Parameter(torch.ones([]) * init_logit_scale)
 
+        self.generative_loss = text_cfg.get('generative_loss', False)
+
         if (text_cfg.get('lora',False) == True):
             self.text.transformer.base_model.model.lm_head.weight.requires_grad=False
 
@@ -335,7 +337,13 @@ class CustomTextCLIP(nn.Module):
 
     def encode_text(self, text, normalize: bool = False):
         features = self.text(text)
-        return F.normalize(features, dim=-1) if normalize else features
+        if self.generative_loss:
+            features, logits = features
+            if normalize:
+                features = F.normalize(features, dim=-1)
+            return features, logits
+        else:
+            return F.normalize(features, dim=-1) if normalize else features
 
     def forward(
             self,
@@ -343,21 +351,34 @@ class CustomTextCLIP(nn.Module):
             text: Optional[torch.Tensor] = None,
     ):
         image_features = self.encode_image(image, normalize=True) if image is not None else None
-        text_features = self.encode_text(text, normalize=True) if text is not None else None
+        if self.generative_loss:
+            text_features, logits = self.encode_text(text, normalize=True) if text is not None else None
 
-        if self.output_dict:
-            out_dict = {
+            labels = text[:, -logits.shape[1]:]
+            return {
                 "image_features": image_features,
                 "text_features": text_features,
+                "logits": logits,
+                "labels": labels,
                 "logit_scale": self.logit_scale.exp()
             }
-            if self.logit_bias is not None:
-                out_dict['logit_bias'] = self.logit_bias
-            return out_dict
 
-        if self.logit_bias is not None:
-            return image_features, text_features, self.logit_scale.exp(), self.logit_bias
-        return image_features, text_features, self.logit_scale.exp()
+        else:
+            text_features = self.encode_text(text, normalize=True) if text is not None else None
+
+            if self.output_dict:
+                out_dict = {
+                    "image_features": image_features,
+                    "text_features": text_features,
+                    "logit_scale": self.logit_scale.exp()
+                }
+                if self.logit_bias is not None:
+                    out_dict['logit_bias'] = self.logit_bias
+                return out_dict
+
+            if self.logit_bias is not None:
+                return image_features, text_features, self.logit_scale.exp(), self.logit_bias
+            return image_features, text_features, self.logit_scale.exp()
 
 
 def convert_weights_to_lp(model: nn.Module, dtype=torch.float16):

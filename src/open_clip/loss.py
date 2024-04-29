@@ -114,7 +114,7 @@ class ClipLoss(nn.Module):
         else:
             logits_per_image = logit_scale * image_features @ text_features.T
             logits_per_text = logit_scale * text_features @ image_features.T
-        
+
         return logits_per_image, logits_per_text
 
     def forward(self, image_features, text_features, logit_scale, output_dict=False):
@@ -158,9 +158,9 @@ class CoCaLoss(ClipLoss):
         self.caption_loss = nn.CrossEntropyLoss(ignore_index=pad_id)
 
     def forward(self, image_features, text_features, logits, labels, logit_scale, output_dict=False):
-        
+
         clip_loss = torch.tensor(0)
-        
+
         if self.clip_loss_weight:
             clip_loss = super().forward(image_features, text_features, logit_scale)
             clip_loss = self.clip_loss_weight * clip_loss
@@ -176,6 +176,51 @@ class CoCaLoss(ClipLoss):
 
         return clip_loss, caption_loss
 
+
+class GenerativeClampLoss(ClipLoss):
+    def __init__(
+            self,
+            clamp_loss_weight,
+            clip_loss_weight,
+            pad_id=0,  # pad_token for open_clip custom tokenizer
+            local_loss=False,
+            gather_with_grad=False,
+            cache_labels=False,
+            rank=0,
+            world_size=1,
+            use_horovod=False,
+    ):
+        super().__init__(
+            local_loss=local_loss,
+            gather_with_grad=gather_with_grad,
+            cache_labels=cache_labels,
+            rank=rank,
+            world_size=world_size,
+            use_horovod=use_horovod
+        )
+
+        self.clip_loss_weight = clip_loss_weight
+        self.caption_loss_weight = clamp_loss_weight
+        self.caption_loss = nn.CrossEntropyLoss(ignore_index=pad_id)
+
+    def forward(self, image_features, text_features, logits, labels, logit_scale, output_dict=False):
+
+        clip_loss = torch.tensor(0)
+
+        if self.clip_loss_weight:
+            clip_loss = super().forward(image_features, text_features, logit_scale)
+            clip_loss = self.clip_loss_weight * clip_loss
+
+        caption_loss = self.caption_loss(
+            logits.permute(0, 2, 1),
+            labels,
+        )
+        caption_loss = caption_loss * self.caption_loss_weight
+
+        if output_dict:
+            return {"contrastive_loss": clip_loss, "caption_loss": caption_loss}
+
+        return clip_loss, caption_loss
 
 class DistillClipLoss(ClipLoss):
 
@@ -219,6 +264,58 @@ class DistillClipLoss(ClipLoss):
             return {"contrastive_loss": contrastive_loss, "distill_loss": distill_loss}
 
         return contrastive_loss, distill_loss
+
+
+class DistilledGenerativeClampLoss(DistillClipLoss):
+    def __init__(
+            self,
+            clamp_loss_weight,
+            clip_loss_weight,
+            pad_id=0,  # pad_token for open_clip custom tokenizer
+            local_loss=False,
+            gather_with_grad=False,
+            cache_labels=False,
+            rank=0,
+            world_size=1,
+            use_horovod=False,
+    ):
+        super().__init__(
+            local_loss=local_loss,
+            gather_with_grad=gather_with_grad,
+            cache_labels=cache_labels,
+            rank=rank,
+            world_size=world_size,
+            use_horovod=use_horovod
+        )
+
+        self.clip_loss_weight = clip_loss_weight
+        self.caption_loss_weight = clamp_loss_weight
+        self.caption_loss = nn.CrossEntropyLoss(ignore_index=pad_id)
+
+    def dist_loss(self, teacher_logits, student_logits):
+        return -(teacher_logits.softmax(dim=1) * student_logits.log_softmax(dim=1)).sum(dim=1).mean(dim=0)
+
+
+    def forward(self, image_features, text_features, dist_image_features, dist_text_features, dist_logit_scale, logits, labels, logit_scale, output_dict=False):
+
+        clip_loss = torch.tensor(0)
+
+        clip_loss, distill_loss = super().forward(image_features, text_features, logit_scale, dist_image_features, dist_text_features, dist_logit_scale)
+        clip_loss = self.clip_loss_weight  * clip_loss
+        distill_loss = self.clip_loss_weight  * distill_loss
+
+        caption_loss = self.caption_loss(
+            logits.permute(0, 2, 1),
+            labels,
+        )
+        caption_loss = caption_loss * self.caption_loss_weight
+
+        if output_dict:
+            return {"contrastive_loss": clip_loss, "caption_loss": caption_loss, "distill_loss": distill_loss}
+
+        return clip_loss, caption_loss, distill_loss
+
+
 
 
 def neighbour_exchange(from_rank, to_rank, tensor, group=None):
@@ -485,7 +582,7 @@ class DistillSigLipLoss(nn.Module):
         else:
             logits_per_image = logit_scale * image_features @ text_features.T
             logits_per_text = logit_scale * text_features @ image_features.T
-        
+
         return logits_per_image, logits_per_text
 
 
