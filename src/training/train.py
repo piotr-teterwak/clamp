@@ -60,7 +60,7 @@ def backward(total_loss, scaler):
         scaler.scale(total_loss).backward()
     else:
         total_loss.backward()
-    
+
 
 
 def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist_model, args, tb_writer=None):
@@ -92,12 +92,20 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
             scheduler(step)
 
         images, texts = batch
-        if args.distill:
-            texts, texts_distill = zip(*texts) 
+        if False:
+            texts, texts_distill = zip(*texts)
             texts = torch.stack(texts)
             texts_distill = torch.stack(texts_distill)
             texts = texts.to(device=device, non_blocking=True)
             texts_distill = texts_distill.to(device=device, non_blocking=True)
+        elif True:
+            texts, texts_distill, texts_generative = zip(*texts)
+            texts = torch.stack(texts)
+            texts_distill = torch.stack(texts_distill)
+            texts_generative = torch.stack(texts_generative)
+            texts = texts.to(device=device, non_blocking=True)
+            texts_distill = texts_distill.to(device=device, non_blocking=True)
+            texts_generative = texts_generative.to(device=device, non_blocking=True)
         else:
             texts = texts.to(device=device, non_blocking=True)
         images = images.to(device=device, dtype=input_dtype, non_blocking=True)
@@ -107,7 +115,10 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
 
         if args.accum_freq == 1:
             with autocast():
-                model_out = model(images, texts)
+                if False:
+                    model_out = model(images, texts)
+                elif True:
+                    model_out = model(images, texts,texts_generative)
                 logit_scale = model_out["logit_scale"]
                 if args.distill:
                     with torch.no_grad():
@@ -124,7 +135,7 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
                 #    if p.grad is None and p.requires_grad is True:
                 #                print('Parameter not used:', n, p.shape)
                 #                #total_loss += 0.0 * p.sum()
-                #1/0 
+                #1/0
                 losses["loss"] = total_loss
 
             backward(total_loss, scaler)
@@ -186,7 +197,7 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
                     if p.grad is None and p.requires_grad is True:
                                 print('Parameter not used:', n, p.shape)
                                 #total_loss += 0.0 * p.sum()
- 
+
 
         if scaler is not None:
             if args.horovod:
@@ -233,7 +244,7 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
             logit_scale_scalar = logit_scale.item()
             loss_log = " ".join(
                 [
-                    f"{loss_name.capitalize()}: {loss_m.val:#.5g} ({loss_m.avg:#.5g})" 
+                    f"{loss_name.capitalize()}: {loss_m.val:#.5g} ({loss_m.avg:#.5g})"
                     for loss_name, loss_m in losses_m.items()
                 ]
             )
@@ -255,7 +266,7 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
                 "samples_per_second_per_gpu": samples_per_second_per_gpu,
                 "scale": logit_scale_scalar,
                 "lr": optimizer.param_groups[0]["lr"]
-            }            
+            }
             log_data.update({name:val.val for name,val in losses_m.items()})
 
             for name, val in log_data.items():
@@ -298,8 +309,16 @@ def evaluate(model, data, epoch, args, tb_writer=None):
         with torch.no_grad():
             for i, batch in enumerate(dataloader):
                 images, texts = batch
-                if args.distill:
-                    texts, texts_distill = zip(*texts) 
+                if args.distill_generative:
+                    texts, texts_distill, generative = zip(*texts)
+                    texts = torch.stack(texts)
+                    texts_distill = torch.stack(texts_distill)
+                    texts_generative = torch.stack(texts_generative)
+                    texts = texts.to(device=device, non_blocking=True)
+                    texts_distill = texts_distill.to(device=device, non_blocking=True)
+                    texts_generative = texts_generative.to(device=device, non_blocking=True)
+                elif args.distill:
+                    texts, texts_distill = zip(*texts)
                     texts = torch.stack(texts)
                     texts_distill = torch.stack(texts_distill)
                     texts = texts.to(device=device, non_blocking=True)
@@ -310,10 +329,14 @@ def evaluate(model, data, epoch, args, tb_writer=None):
 
 
                 with autocast():
-                    model_out = model(images, texts)
+                    if args.distill_generative:
+                        model_out = model(images, texts, texts_generative)
+                    else:
+                        model_out = model(images, texts)
                     image_features = model_out["image_features"]
                     text_features = model_out["text_features"]
                     logit_scale = model_out["logit_scale"]
+
                     # features are accumulated in CPU tensors, otherwise GPU memory exhausted quickly
                     # however, system RAM is easily exceeded and compute time becomes problematic
                     all_image_features.append(image_features.cpu())

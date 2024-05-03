@@ -293,8 +293,8 @@ def create_loss(args):
     if args.distill:
         if "generative" in args.model.lower():
              return DistilledGenerativeClampLoss(
-                 clamp_loss_weight = 2.0,
-                 clip_loss_weight = 1.0,
+                 clamp_loss_weight = args.clamp_generative_loss_weight,
+                 clip_loss_weight = args.clamp_contrastive_loss_weight,
                  local_loss=args.local_loss,
                  gather_with_grad=args.gather_with_grad,
                  cache_labels=True,
@@ -324,8 +324,8 @@ def create_loss(args):
         )
     elif "generative" in args.model.lower():
          return GenerativeClampLoss(
-            clamp_loss_weight=1.0,
-            clip_loss_weight=1.0,
+            clamp_loss_weight=args.clamp_generative_loss_weight,
+            clip_loss_weight=args.clamp_contrastive_loss_weight,
             local_loss=args.local_loss,
             gather_with_grad=args.gather_with_grad,
             cache_labels=True,

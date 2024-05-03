@@ -304,6 +304,8 @@ class DistilledGenerativeClampLoss(DistillClipLoss):
         clip_loss = self.clip_loss_weight  * clip_loss
         distill_loss = self.clip_loss_weight  * distill_loss
 
+        labels = labels[:,1:]
+        logits = logits[:,:-1,:]
         caption_loss = self.caption_loss(
             logits.permute(0, 2, 1),
             labels,

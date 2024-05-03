@@ -349,12 +349,14 @@ class CustomTextCLIP(nn.Module):
             self,
             image: Optional[torch.Tensor] = None,
             text: Optional[torch.Tensor] = None,
+            text_generative: Optional[torch.Tensor] = None
     ):
         image_features = self.encode_image(image, normalize=True) if image is not None else None
         if self.generative_loss:
-            text_features, logits = self.encode_text(text, normalize=True) if text is not None else None
+            text_features, _ = self.encode_text(text, normalize=True) if text is not None else None
+            _, logits = self.encode_text(text_generative, normalize=True) if text_generative is not None else None
 
-            labels = text[:, -logits.shape[1]:]
+            labels = text_generative[:, -logits.shape[1]:]
             return {
                 "image_features": image_features,
                 "text_features": text_features,

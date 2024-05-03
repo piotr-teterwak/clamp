@@ -61,7 +61,7 @@ def parse_args(args):
     )
     parser.add_argument(
         "--dataset-type",
-        choices=["webdataset", "csv", "synthetic", "auto","webdataset_double_tokenizer"],
+        choices=["webdataset", "csv", "synthetic", "auto","webdataset_double_tokenizer", "webdataset_double_tokenizer_distill"],
         default="auto",
         help="Which type of dataset to process."
     )
@@ -397,6 +397,19 @@ def parse_args(args):
         help="Weight assigned to contrastive loss when training CoCa."
     )
     parser.add_argument(
+        "--clamp-generative-loss-weight",
+        type=float,
+        default=2.0,
+        help="Weight assigned to caption loss in CoCa."
+    )
+    parser.add_argument(
+        "--clamp-contrastive-loss-weight",
+        type=float,
+        default=1.0,
+        help="Weight assigned to contrastive loss when training CoCa."
+    )
+
+    parser.add_argument(
         "--remote-sync",
         type=str,
         default=None,
@@ -420,6 +433,13 @@ def parse_args(args):
         action="store_true",
         help="If true, delete previous checkpoint after storing a new one."
     )
+    parser.add_argument(
+        "--distill-generative",
+        default=False,
+        action="store_true",
+        help="Distill generative."
+    )
+
     parser.add_argument(
         "--distill-model",
         default=None,
@@ -460,7 +480,7 @@ def parse_args(args):
         action="store_true",
         help='Wrap Caption for vicuna.'
     )
- 
+
     args = parser.parse_args(args)
 
     # If some params are not passed, we use the default values based on model name.

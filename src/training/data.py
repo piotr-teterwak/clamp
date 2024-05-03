@@ -324,7 +324,7 @@ class ResampledShards2(IterableDataset):
             else:
                 yield dict(url=self.rng.choices(self.urls, weights=self.weights, k=1)[0])
 
-def get_wds_double_tokenizer_dataset(args, preprocess_img, is_train, epoch=0, floor=False, tokenizer=None):
+def get_wds_double_tokenizer_dataset_distill(args, preprocess_img, is_train, epoch=0, floor=False, tokenizer=None):
     input_shards = args.train_data if is_train else args.val_data
     assert input_shards is not None
     resampled = getattr(args, 'dataset_resampled', False) and is_train
@@ -341,10 +341,10 @@ def get_wds_double_tokenizer_dataset(args, preprocess_img, is_train, epoch=0, fl
                     'Please specify it via `--train-num-samples` if no dataset length info is present.')
     else:
         # Eval will just exhaust the iterator if the size is not specified.
-        num_samples = args.val_num_samples or 0 
+        num_samples = args.val_num_samples or 0
 
     shared_epoch = SharedEpoch(epoch=epoch)  # create a shared epoch store to sync epoch to dataloader worker proc
-    
+
     if resampled:
         pipeline = [ResampledShards2(
             input_shards,
@@ -395,7 +395,141 @@ def get_wds_double_tokenizer_dataset(args, preprocess_img, is_train, epoch=0, fl
             return text
 
     def tokenize(text):
-        tokens_a = tokenizer[0](format_text(text))[0] 
+        tokens_a = tokenizer[0](format_text(text))[0]
+        tokens_b = tokenizer[1](text)[0]
+        tokens_c = tokenizer[0](text)[0]
+
+        return tokens_a, tokens_b, tokens_c
+
+    pipeline.extend([
+        wds.select(filter_no_caption_or_no_image),
+        wds.decode("pilrgb", handler=log_and_continue),
+        wds.rename(image="jpg;png;jpeg;webp", text="txt"),
+        wds.map_dict(image=preprocess_img, text=tokenize),
+        wds.to_tuple("image", "text"),
+        wds.batched(args.batch_size, partial=not is_train)
+    ])
+
+    dataset = wds.DataPipeline(*pipeline)
+
+    if is_train:
+        if not resampled:
+            num_shards = num_shards or len(expand_urls(input_shards)[0])
+            assert num_shards >= args.workers * args.world_size, 'number of shards must be >= total workers'
+        # roll over and repeat a few samples to get same number of full batches on each node
+        round_fn = math.floor if floor else math.ceil
+        global_batch_size = args.batch_size * args.world_size
+        num_batches = round_fn(num_samples / global_batch_size)
+        num_workers = max(1, args.workers)
+        num_worker_batches = round_fn(num_batches / num_workers)  # per dataloader worker
+        num_batches = num_worker_batches * num_workers
+        num_samples = num_batches * global_batch_size
+        dataset = dataset.with_epoch(num_worker_batches)  # each worker is iterating over this
+    else:
+        # last batches are partial, eval is done on single (master) node
+        num_batches = math.ceil(num_samples / args.batch_size)
+
+    dataloader = wds.WebLoader(
+        dataset,
+        batch_size=None,
+        shuffle=False,
+        num_workers=args.workers,
+        persistent_workers=args.workers > 0,
+    )
+
+    # FIXME not clear which approach is better, with_epoch before vs after dataloader?
+    # hoping to resolve via https://github.com/webdataset/webdataset/issues/169
+    # if is_train:
+    #     # roll over and repeat a few samples to get same number of full batches on each node
+    #     global_batch_size = args.batch_size * args.world_size
+    #     num_batches = math.ceil(num_samples / global_batch_size)
+    #     num_workers = max(1, args.workers)
+    #     num_batches = math.ceil(num_batches / num_workers) * num_workers
+    #     num_samples = num_batches * global_batch_size
+    #     dataloader = dataloader.with_epoch(num_batches)
+    # else:
+    #     # last batches are partial, eval is done on single (master) node
+    #     num_batches = math.ceil(num_samples / args.batch_size)
+
+    # add meta-data to dataloader instance for convenience
+    dataloader.num_batches = num_batches
+    dataloader.num_samples = num_samples
+
+    return DataInfo(dataloader=dataloader, shared_epoch=shared_epoch)
+
+
+def get_wds_double_tokenizer_dataset(args, preprocess_img, is_train, epoch=0, floor=False, tokenizer=None):
+    input_shards = args.train_data if is_train else args.val_data
+    assert input_shards is not None
+    resampled = getattr(args, 'dataset_resampled', False) and is_train
+
+    num_shards = None
+    if is_train:
+        if args.train_num_samples is not None:
+            num_samples = args.train_num_samples
+        else:
+            num_samples, num_shards = get_dataset_size(input_shards)
+            if not num_samples:
+                raise RuntimeError(
+                    'Currently, the number of dataset samples must be specified for the training dataset. '
+                    'Please specify it via `--train-num-samples` if no dataset length info is present.')
+    else:
+        # Eval will just exhaust the iterator if the size is not specified.
+        num_samples = args.val_num_samples or 0
+
+    shared_epoch = SharedEpoch(epoch=epoch)  # create a shared epoch store to sync epoch to dataloader worker proc
+
+    if resampled:
+        pipeline = [ResampledShards2(
+            input_shards,
+            weights=args.train_data_upsampling_factors,
+            deterministic=True,
+            epoch=shared_epoch,
+        )]
+    else:
+        assert args.train_data_upsampling_factors is None,\
+            "--train_data_upsampling_factors is only supported when sampling with replacement (with --dataset-resampled)."
+        pipeline = [wds.SimpleShardList(input_shards)]
+
+    # at this point we have an iterator over all the shards
+    if is_train:
+        if not resampled:
+            pipeline.extend([
+                detshuffle2(
+                    bufsize=_SHARD_SHUFFLE_SIZE,
+                    initial=_SHARD_SHUFFLE_INITIAL,
+                    seed=args.seed,
+                    epoch=shared_epoch,
+                ),
+                wds.split_by_node,
+                wds.split_by_worker,
+            ])
+        pipeline.extend([
+            # at this point, we have an iterator over the shards assigned to each worker at each node
+            tarfile_to_samples_nothrow,  # wds.tarfile_to_samples(handler=log_and_continue),
+            wds.shuffle(
+                bufsize=_SAMPLE_SHUFFLE_SIZE,
+                initial=_SAMPLE_SHUFFLE_INITIAL,
+            ),
+        ])
+    else:
+        pipeline.extend([
+            wds.split_by_worker,
+            # at this point, we have an iterator over the shards assigned to each worker
+            wds.tarfile_to_samples(handler=log_and_continue),
+        ])
+    def format_text(text):
+        if args.wrap_caption:
+            return "USER: {}\n ASSISTANT".format(text)
+        elif args.wrap_caption_long:
+            return "USER: A photo of a {}.A {} has the following visual attributes ASSISTANT:".format(text,text)
+        elif args.wrap_caption_long_list:
+            return "USER: A photo of a {}.A {} has the following visual attributes ASSISTANT: 1.".format(text,text)
+        else:
+            return text
+
+    def tokenize(text):
+        tokens_a = tokenizer[0](format_text(text))[0]
         tokens_b = tokenizer[1](text)[0]
 
         return tokens_a, tokens_b
@@ -475,10 +609,10 @@ def get_wds_dataset(args, preprocess_img, is_train, epoch=0, floor=False, tokeni
                     'Please specify it via `--train-num-samples` if no dataset length info is present.')
     else:
         # Eval will just exhaust the iterator if the size is not specified.
-        num_samples = args.val_num_samples or 0 
+        num_samples = args.val_num_samples or 0
 
     shared_epoch = SharedEpoch(epoch=epoch)  # create a shared epoch store to sync epoch to dataloader worker proc
-    
+
     if resampled:
         pipeline = [ResampledShards2(
             input_shards,
@@ -669,6 +803,8 @@ def get_dataset_fn(data_path, dataset_type):
         return get_wds_dataset
     elif dataset_type == "webdataset_double_tokenizer":
         return get_wds_double_tokenizer_dataset
+    elif dataset_type == "webdataset_double_tokenizer_distill":
+        return get_wds_double_tokenizer_dataset_distill
     elif dataset_type == "csv":
         return get_csv_dataset
     elif dataset_type == "synthetic":
@@ -684,7 +820,7 @@ def get_dataset_fn(data_path, dataset_type):
                 f"Tried to figure out dataset type, but failed for extension {ext}.")
     else:
         raise ValueError(f"Unsupported dataset type: {dataset_type}")
-    
+
 
 def get_data(args, preprocess_fns, epoch=0, tokenizer=None):
     preprocess_train, preprocess_val = preprocess_fns
