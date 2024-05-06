@@ -353,8 +353,12 @@ class CustomTextCLIP(nn.Module):
     ):
         image_features = self.encode_image(image, normalize=True) if image is not None else None
         if self.generative_loss:
-            text_features, _ = self.encode_text(text, normalize=True) if text is not None else None
-            _, logits = self.encode_text(text_generative, normalize=True) if text_generative is not None else None
+            batch_size = text.shape[0]
+            #text_features, _ = self.encode_text(text, normalize=True) if text is not None else None
+            #_, logits = self.encode_text(text_generative, normalize=True) if text_generative is not None else None
+            text_features, logits = self.encode_text(torch.cat([text,text_generative], dim = 0), normalize=True)
+            text_features = torch.split(text_features, batch_size)[0]
+            logits = torch.split(logits, batch_size)[1]
 
             labels = text_generative[:, -logits.shape[1]:]
             return {
