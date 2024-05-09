@@ -92,13 +92,7 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
             scheduler(step)
 
         images, texts = batch
-        if False:
-            texts, texts_distill = zip(*texts)
-            texts = torch.stack(texts)
-            texts_distill = torch.stack(texts_distill)
-            texts = texts.to(device=device, non_blocking=True)
-            texts_distill = texts_distill.to(device=device, non_blocking=True)
-        elif True:
+        if args.distill_generative:
             texts, texts_distill, texts_generative = zip(*texts)
             texts = torch.stack(texts)
             texts_distill = torch.stack(texts_distill)
@@ -106,6 +100,13 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
             texts = texts.to(device=device, non_blocking=True)
             texts_distill = texts_distill.to(device=device, non_blocking=True)
             texts_generative = texts_generative.to(device=device, non_blocking=True)
+        elif args.distill:
+            texts, texts_distill = zip(*texts)
+            texts = torch.stack(texts)
+            texts_distill = torch.stack(texts_distill)
+            texts = texts.to(device=device, non_blocking=True)
+            texts_distill = texts_distill.to(device=device, non_blocking=True)
+
         else:
             texts = texts.to(device=device, non_blocking=True)
         images = images.to(device=device, dtype=input_dtype, non_blocking=True)
